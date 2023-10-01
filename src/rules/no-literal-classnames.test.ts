@@ -18,6 +18,7 @@ tester.run("no-literal-classnames", no_literal_classnames, {
   valid: [
     "<div className={someComputedClassname} />",
     "<div className={cx(someComputedClassname, otherComputedClassname)} />",
+    "<div className={cx(someComputedClassname, someCondition && someValue)} />",
     {
       code: "<div className={'someLiteralClassname'} />",
       options: ["always", { whitelist: ["someLiteralClassname"] }],
@@ -35,6 +36,14 @@ tester.run("no-literal-classnames", no_literal_classnames, {
     },
     {
       code: "<div className={cx(a, 'b', c)} />",
+      errors: [
+        {
+          message: "Classname must not be a string literal: `b`",
+        },
+      ],
+    },
+    {
+      code: "<div className={cx(a, someCondition && 'b', c)} />",
       errors: [
         {
           message: "Classname must not be a string literal: `b`",

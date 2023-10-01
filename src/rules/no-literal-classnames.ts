@@ -4,6 +4,7 @@ import {
   is_jsx_attribute_node,
   is_jsx_expression_container_node,
   is_literal_node,
+  is_logical_expression_node,
 } from "../utils";
 import { BaseNode } from "estree-jsx";
 
@@ -66,9 +67,16 @@ export const no_literal_classnames: Rule.RuleModule = {
 
         // Handle classname merge expressions
         if (is_call_expression_node(maybe_literal_node)) {
-          for (const arg of maybe_literal_node.arguments) {
-            if (is_literal_node(arg)) {
-              if (whitelist.includes(String(arg.value))) {
+          for (const argument of maybe_literal_node.arguments) {
+            let maybe_literal_arg: BaseNode | null = argument;
+
+            // Handle `cx(someCondition && someClass)`
+            if (is_logical_expression_node(argument)) {
+              maybe_literal_arg = argument.right;
+            }
+
+            if (is_literal_node(maybe_literal_arg)) {
+              if (whitelist.includes(String(maybe_literal_arg.value))) {
                 continue;
               }
 
@@ -76,7 +84,7 @@ export const no_literal_classnames: Rule.RuleModule = {
                 message: `Classname must not be a string literal: \`{{ identifier }}\``,
                 node,
                 data: {
-                  identifier: String(arg.value),
+                  identifier: String(maybe_literal_arg.value),
                 },
               });
             }
