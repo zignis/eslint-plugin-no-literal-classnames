@@ -1,12 +1,14 @@
 import { Rule } from "eslint";
 import {
   is_call_expression_node,
+  is_conditional_expression_node,
   is_jsx_attribute_node,
   is_jsx_expression_container_node,
   is_literal_node,
   is_logical_expression_node,
+  is_template_literal_node,
 } from "../utils";
-import { BaseNode } from "estree-jsx";
+import { Node, BaseNode } from "estree";
 
 export const no_literal_classnames: Rule.RuleModule = {
   /* eslint-disable prefer-snakecase/prefer-snakecase */
@@ -47,6 +49,20 @@ export const no_literal_classnames: Rule.RuleModule = {
       ? settings.whitelist
       : [];
 
+    const report_node = (node: Node, value: string) => {
+      if (whitelist.includes(value)) {
+        return;
+      }
+
+      context.report({
+        message: `Classname must not be a string literal: \`{{ value }}\``,
+        node,
+        data: {
+          value: value,
+        },
+      });
+    };
+
     // noinspection JSUnusedGlobalSymbols
     return {
       JSXAttribute(node: BaseNode) {
@@ -68,6 +84,35 @@ export const no_literal_classnames: Rule.RuleModule = {
         // Handle classname merge expressions
         if (is_call_expression_node(maybe_literal_node)) {
           for (const argument of maybe_literal_node.arguments) {
+            // Handle `cx(someCondition ? consequent : alternate)`
+            if (is_conditional_expression_node(argument)) {
+              if (is_literal_node(argument.consequent)) {
+                report_node(
+                  argument.consequent,
+                  String(argument.consequent.value)
+                );
+                continue;
+              } else if (is_template_literal_node(argument.consequent)) {
+                report_node(
+                  argument.consequent,
+                  String(argument.consequent.quasis[0].value.raw)
+                );
+                continue;
+              } else if (is_literal_node(argument.alternate)) {
+                report_node(
+                  argument.alternate,
+                  String(argument.alternate.value)
+                );
+                continue;
+              } else if (is_template_literal_node(argument.alternate)) {
+                report_node(
+                  argument.alternate,
+                  String(argument.alternate.quasis[0].value.raw)
+                );
+                continue;
+              }
+            }
+
             let maybe_literal_arg: BaseNode | null = argument;
 
             // Handle `cx(someCondition && someClass)`
@@ -76,31 +121,21 @@ export const no_literal_classnames: Rule.RuleModule = {
             }
 
             if (is_literal_node(maybe_literal_arg)) {
-              if (whitelist.includes(String(maybe_literal_arg.value))) {
-                continue;
-              }
-
-              context.report({
-                message: `Classname must not be a string literal: \`{{ identifier }}\``,
-                node,
-                data: {
-                  identifier: String(maybe_literal_arg.value),
-                },
-              });
+              report_node(maybe_literal_arg, String(maybe_literal_arg.value));
+            } else if (is_template_literal_node(maybe_literal_arg)) {
+              report_node(
+                maybe_literal_arg,
+                String(maybe_literal_arg.quasis[0].value.raw)
+              );
             }
           }
         } else if (is_literal_node(maybe_literal_node)) {
-          if (whitelist.includes(String(maybe_literal_node.value))) {
-            return;
-          }
-
-          context.report({
-            message: `Classname must not be a string literal: \`{{ identifier }}\``,
-            node,
-            data: {
-              identifier: String(maybe_literal_node.value),
-            },
-          });
+          report_node(maybe_literal_node, String(maybe_literal_node.value));
+        } else if (is_template_literal_node(maybe_literal_node)) {
+          report_node(
+            maybe_literal_node,
+            String(maybe_literal_node.quasis[0].value.raw)
+          );
         }
       },
     };

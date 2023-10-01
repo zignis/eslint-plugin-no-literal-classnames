@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-no-literal-classnames",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Disallows the usage of string literals as classnames for React components",
   "engines": {
     "node": ">=8.10.0"
